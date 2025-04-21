@@ -19,10 +19,10 @@
     "puppeteer": "^24.6.0",
     "puppeteer-extra": "^3.3.6",
     "puppeteer-extra-plugin-stealth": "^2.11.2",
-    "react": "^19.0.0",
+    "react": "^18.2.0",
     "react-beautiful-dnd": "^13.1.1",
     "react-color": "^2.19.3",
-    "react-dom": "^19.0.0",
+    "react-dom": "^18.2.0",
     "react-tabs": "^6.1.0"
   },
   "devDependencies": {
