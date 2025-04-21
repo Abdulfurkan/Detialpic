@@ -1,5 +1,5 @@
 {
-  "name": "productdetials",
+  "name": "detailpic",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -9,15 +9,27 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
+    "@dnd-kit/utilities": "^3.2.2",
+    "axios": "^1.8.4",
+    "cheerio": "^1.0.0",
+    "html-to-image": "^1.11.13",
+    "next": "15.2.4",
+    "puppeteer": "^24.6.0",
+    "puppeteer-extra": "^3.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2",
     "react": "^19.0.0",
+    "react-beautiful-dnd": "^13.1.1",
+    "react-color": "^2.19.3",
     "react-dom": "^19.0.0",
-    "next": "15.2.4"
+    "react-tabs": "^6.1.0"
   },
   "devDependencies": {
+    "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
-    "tailwindcss": "^4",
     "eslint": "^9",
     "eslint-config-next": "15.2.4",
-    "@eslint/eslintrc": "^3"
+    "tailwindcss": "^4"
   }
 }
