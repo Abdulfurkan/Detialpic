@@ -18,6 +18,8 @@ export default function Home() {
   const [selectedDetails, setSelectedDetails] = useState({});
   const [detailsOrder, setDetailsOrder] = useState([]); // New state for tracking order
   const [feedbackData, setFeedbackData] = useState(null);
+  const [productImages, setProductImages] = useState([]);
+  const [showProductImages, setShowProductImages] = useState(true); // Default to showing images
   const [colorScheme, setColorScheme] = useState({
     headerBg: gemstoneColors.default.headerBg,
     rowBg: gemstoneColors.default.rowBg,
@@ -32,12 +34,15 @@ export default function Home() {
     setSelectedDetails({});
     setDetailsOrder([]); // Reset order when submitting a new URL
     setFeedbackData(null);
+    setProductImages([]);
 
     try {
       // Determine the platform for the API call
       let platformForApi = activeTab;
       if (activeTab === 1) {
         platformForApi = 2; // Use 2 for eBay Feedback
+      } else if (activeTab === 2) {
+        platformForApi = 1; // Use 1 for Etsy (enhanced scraper)
       }
 
       const response = await fetch('/api/scrape', {
@@ -67,6 +72,13 @@ export default function Home() {
       // Process product details for eBay and Etsy tabs
       // Post-process data to combine Cut and Grade fields
       const processedData = { ...data };
+      
+      // Extract product images if available
+      if (processedData['productImages'] && Array.isArray(processedData['productImages'])) {
+        setProductImages(processedData['productImages']);
+        delete processedData['productImages']; // Remove from details to avoid displaying in the table
+      }
+      
       if (processedData['Cut'] && processedData['Grade']) {
         processedData['Cut Grade'] = processedData['Grade'];
         delete processedData['Cut'];
@@ -333,6 +345,9 @@ export default function Home() {
                   setDetailsOrder={setDetailsOrder}
                   colorScheme={colorScheme}
                   setColorScheme={setColorScheme}
+                  productImages={productImages}
+                  showProductImages={showProductImages}
+                  setShowProductImages={setShowProductImages}
                 />
               )}
 
@@ -354,6 +369,8 @@ export default function Home() {
                   setDetailsOrder={setDetailsOrder}
                   setSelectedDetails={setSelectedDetails}
                   colorScheme={colorScheme}
+                  productImages={productImages}
+                  showProductImages={showProductImages}
                 />
               ) : (
                 feedbackData && <FeedbackPreview feedbackData={feedbackData} />
@@ -375,7 +392,7 @@ export default function Home() {
       <footer className="mt-12 bg-white border-t border-gray-200 py-6">
         <div className="container mx-auto px-4">
           <p className="text-center text-gray-500 text-sm">
-            {new Date().getFullYear()} DetailCraft. All rights reserved.
+            {new Date().getFullYear()} DetailPic. All rights reserved.
           </p>
         </div>
       </footer>

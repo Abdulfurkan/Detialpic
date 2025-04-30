@@ -16,7 +16,7 @@ const getContrastColor = (hexColor) => {
   return luminance > 0.5 ? '#000000' : '#ffffff';
 };
 
-const ProductDetails = ({ productDetails, setSelectedDetails, selectedDetails, detailsOrder, setDetailsOrder, colorScheme, setColorScheme }) => {
+const ProductDetails = ({ productDetails, setSelectedDetails, selectedDetails, detailsOrder, setDetailsOrder, colorScheme, setColorScheme, productImages, showProductImages, setShowProductImages }) => {
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [activeColorSetting, setActiveColorSetting] = useState(null);
   const [detectedGemstone, setDetectedGemstone] = useState(null);
@@ -250,6 +250,42 @@ const ProductDetails = ({ productDetails, setSelectedDetails, selectedDetails, d
           Drag the dots in the preview to reorder details
         </p>
       </div>
+      
+      {productImages && productImages.length > 0 && (
+        <div className="mt-6 border-t pt-4">
+          <h3 className="text-md font-medium text-gray-700 mb-3 flex items-center">
+            <svg className="w-4 h-4 mr-1 text-gray-600" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+              <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd"></path>
+            </svg>
+            Product Images
+          </h3>
+          <div className="flex items-center mb-4">
+            <label className="inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={showProductImages}
+                onChange={() => setShowProductImages(!showProductImages)}
+                className="sr-only peer"
+              />
+              <div className="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+              <span className="ms-3 text-sm font-medium text-gray-700">Show product images</span>
+            </label>
+          </div>
+          
+          <div className="grid grid-cols-2 gap-2">
+            {productImages.map((image, index) => (
+              <div key={index} className="border rounded-md overflow-hidden">
+                <img 
+                  src={image} 
+                  alt={`Product image ${index + 1}`} 
+                  className="w-full h-auto object-contain"
+                  style={{ maxHeight: '100px' }}
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

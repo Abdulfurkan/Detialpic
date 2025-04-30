@@ -71,7 +71,7 @@ const SortableRow = ({ id, keyName, value, bgColor, onRemove }) => {
   );
 };
 
-const ImagePreview = ({ productDetails, detailsOrder, setDetailsOrder, setSelectedDetails, colorScheme }) => {
+const ImagePreview = ({ productDetails, detailsOrder, setDetailsOrder, setSelectedDetails, colorScheme, productImages = [], showProductImages = true }) => {
   const previewRef = useRef(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [downloadSuccess, setDownloadSuccess] = useState(false);
@@ -79,6 +79,10 @@ const ImagePreview = ({ productDetails, detailsOrder, setDetailsOrder, setSelect
   const [orderedKeys, setOrderedKeys] = useState([]);
   const [removedItem, setRemovedItem] = useState(null);
   const [showUndo, setShowUndo] = useState(false);
+  const [imageSize, setImageSize] = useState(100); // Default image size 100%
+  const [showResizeControls, setShowResizeControls] = useState(false);
+  const [imageLayout, setImageLayout] = useState('horizontal'); // 'horizontal', 'square', 'vertical'
+  const [imageFit, setImageFit] = useState('contain'); // 'contain' or 'cover'
 
   // Set up DnD sensors
   const sensors = useSensors(
@@ -252,20 +256,28 @@ const ImagePreview = ({ productDetails, detailsOrder, setDetailsOrder, setSelect
       try {
         setIsGenerating(true);
 
-        // Temporarily hide the controls for the download
-        const controls = previewRef.current.querySelectorAll('.controls-container');
-        controls.forEach(control => {
+        // Temporarily hide the resize controls for the download
+        const resizeControls = document.querySelectorAll('.resize-control');
+        resizeControls.forEach(control => {
           control.style.display = 'none';
         });
 
-        const dataUrl = await htmlToImage.toPng(previewRef.current, { quality: 1.0 });
-
-        // Restore the controls
-        controls.forEach(control => {
-          control.style.display = 'flex';
+        // Generate the image
+        const dataUrl = await htmlToImage.toPng(previewRef.current, {
+          quality: 0.95,
+          pixelRatio: 2, // Higher resolution
+          filter: (node) => {
+            // Filter out any resize controls that might be inside the container
+            return !node.classList || !node.classList.contains('resize-control');
+          }
+        });
+        
+        // Restore resize controls after image generation
+        resizeControls.forEach(control => {
+          control.style.display = '';
         });
 
-        // Create and trigger download
+        // Create a download link
         const link = document.createElement('a');
         link.download = 'product-details.png';
         link.href = dataUrl;
@@ -273,9 +285,17 @@ const ImagePreview = ({ productDetails, detailsOrder, setDetailsOrder, setSelect
 
         // Show success message briefly
         setDownloadSuccess(true);
-        setTimeout(() => setDownloadSuccess(false), 3000);
+        setTimeout(() => {
+          setDownloadSuccess(false);
+        }, 3000);
       } catch (error) {
         console.error('Error generating image:', error);
+        
+        // Make sure resize controls are restored even if there's an error
+        const resizeControls = document.querySelectorAll('.resize-control');
+        resizeControls.forEach(control => {
+          control.style.display = '';
+        });
       } finally {
         setIsGenerating(false);
       }
@@ -351,6 +371,159 @@ const ImagePreview = ({ productDetails, detailsOrder, setDetailsOrder, setSelect
             color: colorScheme.textColor,
           }}
         >
+          {/* Product Images Section */}
+          {showProductImages && productImages.length > 0 && (
+            <div className="mb-2 relative">
+              {/* Resize icon - positioned outside the previewRef container so it won't be included in downloads */}
+              <div 
+                className="absolute top-2 right-2 z-10 cursor-pointer bg-black bg-opacity-30 hover:bg-opacity-50 text-white p-1 rounded transition-all duration-200 resize-control"
+                onClick={() => setShowResizeControls(!showResizeControls)}
+                title="Resize images"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5v-4m0 4h-4m4 0l-5-5" />
+                </svg>
+              </div>
+              
+              {/* Enhanced resize controls panel */}
+              {showResizeControls && (
+                <div className="absolute top-10 right-2 z-20 bg-white shadow-lg rounded-md p-3 border border-gray-200 w-72 resize-control">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-sm font-medium text-gray-700">Image Layout & Size</span>
+                    <button 
+                      onClick={() => setShowResizeControls(false)}
+                      className="text-gray-400 hover:text-gray-600"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
+                      </svg>
+                    </button>
+                  </div>
+                  
+                  {/* Layout options */}
+                  <div className="mb-3">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Layout Format</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      <button
+                        onClick={() => setImageLayout('horizontal')}
+                        className={`p-2 border rounded flex flex-col items-center ${imageLayout === 'horizontal' ? 'border-purple-500 bg-purple-50' : 'border-gray-200 hover:bg-gray-50'}`}
+                      >
+                        <div className="w-12 h-8 bg-gray-200 rounded mb-1"></div>
+                        <span className="text-xs">Horizontal</span>
+                      </button>
+                      <button
+                        onClick={() => setImageLayout('square')}
+                        className={`p-2 border rounded flex flex-col items-center ${imageLayout === 'square' ? 'border-purple-500 bg-purple-50' : 'border-gray-200 hover:bg-gray-50'}`}
+                      >
+                        <div className="w-8 h-8 bg-gray-200 rounded mb-1"></div>
+                        <span className="text-xs">Square</span>
+                      </button>
+                      <button
+                        onClick={() => setImageLayout('vertical')}
+                        className={`p-2 border rounded flex flex-col items-center ${imageLayout === 'vertical' ? 'border-purple-500 bg-purple-50' : 'border-gray-200 hover:bg-gray-50'}`}
+                      >
+                        <div className="w-8 h-10 bg-gray-200 rounded mb-1"></div>
+                        <span className="text-xs">Vertical</span>
+                      </button>
+                    </div>
+                  </div>
+                  
+                  {/* Size slider */}
+                  <div className="mb-3">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Size: {imageSize}%</label>
+                    <input 
+                      type="range" 
+                      min="50" 
+                      max="150" 
+                      value={imageSize}
+                      onChange={(e) => setImageSize(parseInt(e.target.value))}
+                      className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                    />
+                  </div>
+                  
+                  {/* Image fit options */}
+                  <div className="mb-3">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Image Fit</label>
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={() => setImageFit('contain')}
+                        className={`px-3 py-1 text-xs rounded-md flex-1 ${imageFit === 'contain' ? 'bg-purple-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+                      >
+                        Contain
+                      </button>
+                      <button
+                        onClick={() => setImageFit('cover')}
+                        className={`px-3 py-1 text-xs rounded-md flex-1 ${imageFit === 'cover' ? 'bg-purple-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+                      >
+                        Fill
+                      </button>
+                    </div>
+                  </div>
+                  
+                  {/* Preset size buttons */}
+                  <div className="flex space-x-2">
+                    <button 
+                      onClick={() => setImageSize(75)}
+                      className={`px-2 py-1 text-xs rounded ${imageSize === 75 ? 'bg-purple-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+                    >
+                      Small
+                    </button>
+                    <button 
+                      onClick={() => setImageSize(100)}
+                      className={`px-2 py-1 text-xs rounded ${imageSize === 100 ? 'bg-purple-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+                    >
+                      Medium
+                    </button>
+                    <button 
+                      onClick={() => setImageSize(125)}
+                      className={`px-2 py-1 text-xs rounded ${imageSize === 125 ? 'bg-purple-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+                    >
+                      Large
+                    </button>
+                    <button 
+                      onClick={() => {
+                        setImageSize(100);
+                        setImageLayout('horizontal');
+                        setImageFit('contain');
+                      }}
+                      className="px-2 py-1 text-xs rounded bg-gray-200 text-gray-700 hover:bg-gray-300 ml-auto"
+                    >
+                      Reset
+                    </button>
+                  </div>
+                </div>
+              )}
+              
+              {/* Image container with fixed aspect ratio based on selected layout */}
+              <div 
+                className={`w-full mb-2 border border-gray-200 bg-white overflow-hidden`}
+                style={{
+                  aspectRatio: imageLayout === 'horizontal' ? '16/9' : imageLayout === 'square' ? '1/1' : '9/16',
+                  maxHeight: imageLayout === 'horizontal' ? '300px' : imageLayout === 'square' ? '400px' : '500px',
+                  transition: 'all 0.3s ease'
+                }}
+              >
+                <div className="grid grid-cols-2 gap-2 h-full">
+                  {productImages.slice(0, 2).map((image, index) => (
+                    <div key={index} className="overflow-hidden flex items-center justify-center h-full">
+                      <img 
+                        src={image} 
+                        alt={`Product image ${index + 1}`} 
+                        className={`transition-all duration-300 ${imageFit === 'contain' ? 'object-contain' : 'object-cover'}`}
+                        style={{ 
+                          width: '100%',
+                          height: '100%',
+                          transform: `scale(${imageSize / 100})`,
+                          transformOrigin: 'center center'
+                        }}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+          
           <table className="w-full border-collapse">
             <thead>
               <tr>

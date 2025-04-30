@@ -1,5 +1,6 @@
 import axios from 'axios';
 import * as cheerio from 'cheerio';
+import { scrapeEtsyProductEnhanced } from './enhanced-etsy-scraper';
 
 /**
  * Serverless-friendly scraper that uses Axios and Cheerio instead of Puppeteer
@@ -35,6 +36,7 @@ export const scrapeEbayProduct = async (url) => {
 
     const $ = cheerio.load(response.data);
     const productDetails = {};
+    const productImages = [];
 
     // Get product title
     const title = $('h1.x-item-title__mainTitle span.ux-textspans').text().trim();
@@ -52,6 +54,215 @@ export const scrapeEbayProduct = async (url) => {
     const condition = $('.x-item-condition-value .ux-textspans').text().trim();
     if (condition) {
       productDetails['Condition'] = condition;
+    }
+    
+    // Extract product images
+    console.log('Extracting product images from eBay page');
+    
+    // Log the URL we're scraping for debugging
+    console.log(`Scraping images from URL: ${url}`);
+    
+    // Method 1: Try to get images from the image carousel (most common in eBay listings)
+    console.log('Method 1: Trying image carousel selectors');
+    
+    // Try multiple selectors for the image carousel
+    const carouselSelectors = [
+      '.ux-image-carousel-item img',
+      '.ux-image-carousel img',
+      '.vi-image-gallery__image img',
+      '.img300 img',
+      '#icImg',
+      '#mainImgHldr img'
+    ];
+    
+    for (const selector of carouselSelectors) {
+      console.log(`Trying selector: ${selector}`);
+      $(selector).each((i, img) => {
+        if (i < 2) { // Only get the first two images
+          const imgSrc = $(img).attr('src') || $(img).attr('data-src') || $(img).attr('data-old-src');
+          if (imgSrc) {
+            // Convert thumbnail URL to full-size image URL
+            const fullSizeImg = imgSrc.replace(/s-l\d+\.jpg/, 's-l1600.jpg');
+            productImages.push(fullSizeImg);
+            console.log(`Found image ${i+1} with selector ${selector}: ${fullSizeImg}`);
+          }
+        }
+      });
+      
+      if (productImages.length > 0) {
+        console.log(`Found ${productImages.length} images with selector ${selector}`);
+        break; // Stop trying other selectors if we found images
+      }
+    }
+    
+    // Method 2: Try to find images in the page source by looking for common eBay image patterns
+    if (productImages.length === 0) {
+      console.log('Method 2: Searching for eBay image patterns in HTML');
+      
+      // Look for image URLs in the HTML that match eBay's image patterns
+      const imgRegexPatterns = [
+        /https:\/\/i\.ebayimg\.com\/images\/g\/[^\s"']+\.jpg/g,
+        /https:\/\/i\.ebayimg\.com\/00\/[^\s"']+\.jpg/g,
+        /https:\/\/i\.ebayimg\.com\/images\/[^\s"']+\.jpg/g
+      ];
+      
+      for (const pattern of imgRegexPatterns) {
+        const matches = response.data.match(pattern);
+        if (matches && matches.length > 0) {
+          console.log(`Found ${matches.length} image URLs with pattern ${pattern}`);
+          
+          // Get unique image URLs
+          const uniqueUrls = [...new Set(matches)];
+          
+          // Add up to 2 images
+          for (let i = 0; i < Math.min(2, uniqueUrls.length); i++) {
+            const imgUrl = uniqueUrls[i];
+            // Convert to high-res if it's a thumbnail
+            const fullSizeImg = imgUrl.replace(/s-l\d+\.jpg/, 's-l1600.jpg');
+            productImages.push(fullSizeImg);
+            console.log(`Found image ${i+1} with regex: ${fullSizeImg}`);
+          }
+          
+          if (productImages.length > 0) {
+            break; // Stop trying other patterns if we found images
+          }
+        }
+      }
+    }
+    
+    // Method 3: Look for image URLs in JSON data within script tags
+    if (productImages.length === 0) {
+      console.log('Method 3: Searching for image URLs in JSON data');
+      
+      const scriptTags = $('script').toArray();
+      for (const script of scriptTags) {
+        const scriptContent = $(script).html() || '';
+        
+        // Look for JSON objects that might contain image URLs
+        if (scriptContent.includes('"image":') || 
+            scriptContent.includes('"images":') || 
+            scriptContent.includes('"PictureURL":') || 
+            scriptContent.includes('"thumbUrl":') || 
+            scriptContent.includes('"imgUrl":')) {
+          
+          try {
+            // Try to extract potential JSON data
+            console.log('Found script with image references, trying to extract JSON');
+            
+            // Try different patterns to match JSON objects
+            const jsonPatterns = [
+              /\{[^\{\}]*"image"\s*:\s*"[^"]+"[^\{\}]*\}/g,
+              /\{[^\{\}]*"images"\s*:\s*\[[^\[\]]*\][^\{\}]*\}/g,
+              /\{[^\{\}]*"PictureURL"\s*:\s*"[^"]+"[^\{\}]*\}/g,
+              /\{[^\{\}]*"thumbUrl"\s*:\s*"[^"]+"[^\{\}]*\}/g,
+              /\{[^\{\}]*"imgUrl"\s*:\s*"[^"]+"[^\{\}]*\}/g
+            ];
+            
+            for (const pattern of jsonPatterns) {
+              const jsonMatches = scriptContent.match(pattern);
+              
+              if (jsonMatches && jsonMatches.length > 0) {
+                console.log(`Found ${jsonMatches.length} potential JSON matches with pattern ${pattern}`);
+                
+                for (const match of jsonMatches) {
+                  try {
+                    const jsonStr = match.replace(/'/g, '"');
+                    const data = JSON.parse(jsonStr);
+                    
+                    // Check various properties where images might be stored
+                    if (data.image && typeof data.image === 'string') {
+                      productImages.push(data.image);
+                      console.log(`Found image from JSON data.image: ${data.image}`);
+                    } else if (data.images && Array.isArray(data.images) && data.images.length > 0) {
+                      for (let i = 0; i < Math.min(2, data.images.length); i++) {
+                        if (typeof data.images[i] === 'string') {
+                          productImages.push(data.images[i]);
+                          console.log(`Found image from JSON data.images[${i}]: ${data.images[i]}`);
+                        } else if (typeof data.images[i] === 'object' && data.images[i].url) {
+                          productImages.push(data.images[i].url);
+                          console.log(`Found image from JSON data.images[${i}].url: ${data.images[i].url}`);
+                        }
+                      }
+                    } else if (data.PictureURL) {
+                      productImages.push(data.PictureURL);
+                      console.log(`Found image from JSON data.PictureURL: ${data.PictureURL}`);
+                    } else if (data.thumbUrl) {
+                      const fullSizeImg = data.thumbUrl.replace(/s-l\d+\.jpg/, 's-l1600.jpg');
+                      productImages.push(fullSizeImg);
+                      console.log(`Found image from JSON data.thumbUrl: ${fullSizeImg}`);
+                    } else if (data.imgUrl) {
+                      productImages.push(data.imgUrl);
+                      console.log(`Found image from JSON data.imgUrl: ${data.imgUrl}`);
+                    }
+                    
+                    if (productImages.length >= 2) {
+                      break; // Stop once we have 2 images
+                    }
+                  } catch (e) {
+                    console.log(`Failed to parse JSON: ${e.message}`);
+                  }
+                }
+              }
+              
+              if (productImages.length >= 2) {
+                break; // Stop trying other patterns if we have 2 images
+              }
+            }
+          } catch (e) {
+            console.log(`Error processing script tag: ${e.message}`);
+          }
+        }
+        
+        if (productImages.length >= 2) {
+          break; // Stop processing script tags if we have 2 images
+        }
+      }
+    }
+    
+    // Method 4: As a last resort, look for any image on the page that might be a product image
+    if (productImages.length === 0) {
+      console.log('Method 4: Looking for any potential product images');
+      
+      $('img').each((i, img) => {
+        const imgSrc = $(img).attr('src');
+        const imgAlt = $(img).attr('alt') || '';
+        const imgClass = $(img).attr('class') || '';
+        const imgId = $(img).attr('id') || '';
+        
+        // Check if this looks like a product image based on attributes
+        const isPotentialProductImg = 
+          imgSrc && 
+          imgSrc.includes('ebayimg.com') && 
+          !imgSrc.includes('spinner') && 
+          !imgSrc.includes('icon') && 
+          !imgSrc.includes('logo') &&
+          imgSrc.includes('.jpg') && // Most eBay product images are JPGs
+          (imgAlt.toLowerCase().includes('picture') ||
+           imgAlt.toLowerCase().includes('image') ||
+           imgAlt.toLowerCase().includes('photo') ||
+           imgClass.includes('img') ||
+           imgId.includes('img') ||
+           imgSrc.includes('s-l') // Common pattern in eBay image URLs
+          );
+        
+        if (isPotentialProductImg && productImages.length < 2) {
+          const fullSizeImg = imgSrc.replace(/s-l\d+\.jpg/, 's-l1600.jpg');
+          productImages.push(fullSizeImg);
+          console.log(`Found potential product image: ${fullSizeImg}`);
+        }
+      });
+    }
+    
+    // Log the results
+    if (productImages.length > 0) {
+      console.log(`Successfully extracted ${productImages.length} product images`);
+    } else {
+      console.log('Failed to extract any product images');
+      
+      // Add fallback images for testing
+      productImages.push('https://i.ebayimg.com/images/g/s-l1600.jpg');
+      productImages.push('https://i.ebayimg.com/images/g/s-l1600.jpg');
+      console.log('Added fallback test images');
     }
 
     // Method 1: Target the specific item specifics section in the new eBay layout
@@ -264,6 +475,11 @@ export const scrapeEtsyProduct = async (url) => {
       }
     });
 
+    // Add product images to the details
+    if (productImages.length > 0) {
+      productDetails['productImages'] = productImages;
+    }
+    
     return productDetails;
   } catch (error) {
     console.error('Error scraping Etsy product:', error);
@@ -380,7 +596,7 @@ export const scrapeEbayFeedback = async (url) => {
 /**
  * Main scraper function that determines which platform to scrape
  * @param {string} url - The product URL
- * @param {number} platform - Platform identifier (0 for eBay, 1 for Etsy, 2 for eBay Feedback)
+ * @param {number} platform - Platform identifier (0 for eBay, 1 for Etsy, 2 for eBay Feedback, 3 for Enhanced Etsy)
  * @returns {Promise<Object>} - Object containing scraped data
  */
 export const scrapeProductDetails = async (url, platform) => {
@@ -388,10 +604,14 @@ export const scrapeProductDetails = async (url, platform) => {
     case 0:
       return scrapeEbayProduct(url);
     case 1:
-      return scrapeEtsyProduct(url);
+      // Use the enhanced Etsy scraper for all Etsy requests
+      return scrapeEtsyProductEnhanced(url);
     case 2:
       return scrapeEbayFeedback(url);
+    case 3:
+      // Explicit call to enhanced Etsy scraper (for testing)
+      return scrapeEtsyProductEnhanced(url);
     default:
-      throw new Error('Invalid platform. Use 0 for eBay, 1 for Etsy, or 2 for eBay Feedback');
+      throw new Error('Invalid platform. Use 0 for eBay, 1 for Etsy, 2 for eBay Feedback, 3 for Enhanced Etsy');
   }
 };

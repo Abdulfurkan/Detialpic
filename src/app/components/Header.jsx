@@ -67,7 +67,19 @@ const Header = ({ activeTab, setActiveTab }) => {
                     <span className="text-green-600 font-bold">eBay Review</span>
                   </div>
                 </Tab>
+                <Tab 
+                  className="px-6 py-2 text-center cursor-pointer transition-all duration-200 relative hover:bg-gray-50 rounded-t-md"
+                  selectedClassName="text-red-600 border-b-2 border-red-600 font-medium bg-red-50"
+                >
+                  <div className="flex items-center space-x-2">
+                    <span className="text-red-600 font-bold">Etsy</span>
+                  </div>
+                </Tab>
               </TabList>
+              {/* TabPanels - these are required by react-tabs but can be empty since we handle content elsewhere */}
+              <TabPanel></TabPanel>
+              <TabPanel></TabPanel>
+              <TabPanel></TabPanel>
             </Tabs>
           </div>
         </div>
