@@ -30,11 +30,11 @@ const SortableRow = ({ id, keyName, value, bgColor, onRemove }) => {
   };
 
   return (
-    <tr ref={setNodeRef} style={style}>
-      <td className="p-3 border border-gray-200 font-medium" style={{ width: '40%' }}>
+    <div ref={setNodeRef} style={style} className="flex border border-gray-200">
+      <div className="p-3 border-r border-gray-200 font-medium w-2/5">
         {keyName}
-      </td>
-      <td className="p-3 border border-gray-200 relative" style={{ width: '60%' }}>
+      </div>
+      <div className="p-3 relative w-3/5">
         <div className="flex justify-between items-center">
           <div className="pr-16">{value}</div>
           <div className="controls-container absolute right-2 top-1/2 transform -translate-y-1/2 flex items-center space-x-2">
@@ -66,12 +66,15 @@ const SortableRow = ({ id, keyName, value, bgColor, onRemove }) => {
             </div>
           </div>
         </div>
-      </td>
-    </tr>
+      </div>
+    </div>
   );
 };
 
 const ImagePreview = ({ productDetails, detailsOrder, setDetailsOrder, setSelectedDetails, colorScheme, productImages = [], showProductImages = true }) => {
+  // Step 1: Add state for image placement
+  // Possible values: 'top' (default), 'left'
+  const [imagePlacement, setImagePlacement] = useState('top');
   const previewRef = useRef(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [downloadSuccess, setDownloadSuccess] = useState(false);
@@ -80,7 +83,7 @@ const ImagePreview = ({ productDetails, detailsOrder, setDetailsOrder, setSelect
   const [removedItem, setRemovedItem] = useState(null);
   const [showUndo, setShowUndo] = useState(false);
   const [imageSize, setImageSize] = useState(100); // Default image size 100%
-  const [showResizeControls, setShowResizeControls] = useState(false);
+
   const [imageLayout, setImageLayout] = useState('horizontal'); // 'horizontal', 'square', 'vertical'
   const [imageFit, setImageFit] = useState('contain'); // 'contain' or 'cover'
 
@@ -256,12 +259,6 @@ const ImagePreview = ({ productDetails, detailsOrder, setDetailsOrder, setSelect
       try {
         setIsGenerating(true);
 
-        // Temporarily hide the resize controls for the download
-        const resizeControls = document.querySelectorAll('.resize-control');
-        resizeControls.forEach(control => {
-          control.style.display = 'none';
-        });
-
         // Generate the image
         const dataUrl = await htmlToImage.toPng(previewRef.current, {
           quality: 0.95,
@@ -270,11 +267,6 @@ const ImagePreview = ({ productDetails, detailsOrder, setDetailsOrder, setSelect
             // Filter out any resize controls that might be inside the container
             return !node.classList || !node.classList.contains('resize-control');
           }
-        });
-        
-        // Restore resize controls after image generation
-        resizeControls.forEach(control => {
-          control.style.display = '';
         });
 
         // Create a download link
@@ -290,12 +282,6 @@ const ImagePreview = ({ productDetails, detailsOrder, setDetailsOrder, setSelect
         }, 3000);
       } catch (error) {
         console.error('Error generating image:', error);
-        
-        // Make sure resize controls are restored even if there's an error
-        const resizeControls = document.querySelectorAll('.resize-control');
-        resizeControls.forEach(control => {
-          control.style.display = '';
-        });
       } finally {
         setIsGenerating(false);
       }
@@ -338,6 +324,34 @@ const ImagePreview = ({ productDetails, detailsOrder, setDetailsOrder, setSelect
 
   return (
     <div className="bg-white p-6 rounded-lg shadow-md transition-all duration-300 hover:shadow-lg">
+      {/* Step 2: Placement controls (top/left) */}
+      <div className="flex items-center mb-4 space-x-3">
+        <span className="text-gray-700 font-medium mr-2">Image Placement:</span>
+        <button
+          onClick={() => setImagePlacement('top')}
+          className={`p-2 rounded border flex items-center justify-center transition-colors duration-200 ${imagePlacement === 'top' ? 'border-blue-600 bg-blue-50' : 'border-gray-200 hover:bg-gray-100'}`}
+          title="Place images above details"
+          aria-label="Top placement"
+        >
+          {/* Top icon */}
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+            <rect x="4" y="4" width="16" height="6" rx="1.5" fill={imagePlacement === 'top' ? '#2563eb' : '#e5e7eb'} stroke="currentColor" />
+            <rect x="4" y="12" width="16" height="8" rx="1.5" fill="#fff" stroke="currentColor" />
+          </svg>
+        </button>
+        <button
+          onClick={() => setImagePlacement('left')}
+          className={`p-2 rounded border flex items-center justify-center transition-colors duration-200 ${imagePlacement === 'left' ? 'border-blue-600 bg-blue-50' : 'border-gray-200 hover:bg-gray-100'}`}
+          title="Place images left of details"
+          aria-label="Left placement"
+        >
+          {/* Left icon */}
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+            <rect x="4" y="4" width="6" height="16" rx="1.5" fill={imagePlacement === 'left' ? '#2563eb' : '#e5e7eb'} stroke="currentColor" />
+            <rect x="12" y="4" width="8" height="16" rx="1.5" fill="#fff" stroke="currentColor" />
+          </svg>
+        </button>
+      </div>
       <h2 className="text-xl font-semibold mb-4 flex items-center text-gray-800">
         <svg className="w-5 h-5 mr-2 text-green-600" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
           <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd"></path>
@@ -371,195 +385,151 @@ const ImagePreview = ({ productDetails, detailsOrder, setDetailsOrder, setSelect
             color: colorScheme.textColor,
           }}
         >
-          {/* Product Images Section */}
-          {showProductImages && productImages.length > 0 && (
-            <div className="mb-2 relative">
-              {/* Resize icon - positioned outside the previewRef container so it won't be included in downloads */}
-              <div 
-                className="absolute top-2 right-2 z-10 cursor-pointer bg-black bg-opacity-30 hover:bg-opacity-50 text-white p-1 rounded transition-all duration-200 resize-control"
-                onClick={() => setShowResizeControls(!showResizeControls)}
-                title="Resize images"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5v-4m0 4h-4m4 0l-5-5" />
-                </svg>
-              </div>
-              
-              {/* Enhanced resize controls panel */}
-              {showResizeControls && (
-                <div className="absolute top-10 right-2 z-20 bg-white shadow-lg rounded-md p-3 border border-gray-200 w-72 resize-control">
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-sm font-medium text-gray-700">Image Layout & Size</span>
-                    <button 
-                      onClick={() => setShowResizeControls(false)}
-                      className="text-gray-400 hover:text-gray-600"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
-                      </svg>
-                    </button>
-                  </div>
-                  
-                  {/* Layout options */}
-                  <div className="mb-3">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Layout Format</label>
-                    <div className="grid grid-cols-3 gap-2">
-                      <button
-                        onClick={() => setImageLayout('horizontal')}
-                        className={`p-2 border rounded flex flex-col items-center ${imageLayout === 'horizontal' ? 'border-purple-500 bg-purple-50' : 'border-gray-200 hover:bg-gray-50'}`}
+          {/* Product Images Section & Product Details Placement */}
+          {showProductImages && productImages.length > 0 && imagePlacement === 'left' ? (
+            <div className="flex flex-col md:flex-row gap-1 mb-2">
+              {/* Images on the left */}
+              <div className="md:w-1/3 w-full flex flex-col items-center">
+                <div
+                  className={`w-full border border-gray-200 bg-white overflow-hidden h-full`}
+                  style={{
+                    height: '100%',
+                    transition: 'all 0.3s ease'
+                  }}
+                >
+                  <div className="flex flex-col h-full">
+                    {productImages.slice(0, 2).map((image, index) => (
+                      <div 
+                        key={index} 
+                        className="overflow-hidden flex items-center justify-center w-full" 
+                        style={{ 
+                          height: index === 0 ? '60%' : '40%',
+                          flex: index === 0 ? '1 0 60%' : '1 0 40%'
+                        }}
                       >
-                        <div className="w-12 h-8 bg-gray-200 rounded mb-1"></div>
-                        <span className="text-xs">Horizontal</span>
-                      </button>
-                      <button
-                        onClick={() => setImageLayout('square')}
-                        className={`p-2 border rounded flex flex-col items-center ${imageLayout === 'square' ? 'border-purple-500 bg-purple-50' : 'border-gray-200 hover:bg-gray-50'}`}
-                      >
-                        <div className="w-8 h-8 bg-gray-200 rounded mb-1"></div>
-                        <span className="text-xs">Square</span>
-                      </button>
-                      <button
-                        onClick={() => setImageLayout('vertical')}
-                        className={`p-2 border rounded flex flex-col items-center ${imageLayout === 'vertical' ? 'border-purple-500 bg-purple-50' : 'border-gray-200 hover:bg-gray-50'}`}
-                      >
-                        <div className="w-8 h-10 bg-gray-200 rounded mb-1"></div>
-                        <span className="text-xs">Vertical</span>
-                      </button>
-                    </div>
-                  </div>
-                  
-                  {/* Size slider */}
-                  <div className="mb-3">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Size: {imageSize}%</label>
-                    <input 
-                      type="range" 
-                      min="50" 
-                      max="150" 
-                      value={imageSize}
-                      onChange={(e) => setImageSize(parseInt(e.target.value))}
-                      className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                    />
-                  </div>
-                  
-                  {/* Image fit options */}
-                  <div className="mb-3">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Image Fit</label>
-                    <div className="flex space-x-2">
-                      <button
-                        onClick={() => setImageFit('contain')}
-                        className={`px-3 py-1 text-xs rounded-md flex-1 ${imageFit === 'contain' ? 'bg-purple-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
-                      >
-                        Contain
-                      </button>
-                      <button
-                        onClick={() => setImageFit('cover')}
-                        className={`px-3 py-1 text-xs rounded-md flex-1 ${imageFit === 'cover' ? 'bg-purple-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
-                      >
-                        Fill
-                      </button>
-                    </div>
-                  </div>
-                  
-                  {/* Preset size buttons */}
-                  <div className="flex space-x-2">
-                    <button 
-                      onClick={() => setImageSize(75)}
-                      className={`px-2 py-1 text-xs rounded ${imageSize === 75 ? 'bg-purple-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
-                    >
-                      Small
-                    </button>
-                    <button 
-                      onClick={() => setImageSize(100)}
-                      className={`px-2 py-1 text-xs rounded ${imageSize === 100 ? 'bg-purple-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
-                    >
-                      Medium
-                    </button>
-                    <button 
-                      onClick={() => setImageSize(125)}
-                      className={`px-2 py-1 text-xs rounded ${imageSize === 125 ? 'bg-purple-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
-                    >
-                      Large
-                    </button>
-                    <button 
-                      onClick={() => {
-                        setImageSize(100);
-                        setImageLayout('horizontal');
-                        setImageFit('contain');
-                      }}
-                      className="px-2 py-1 text-xs rounded bg-gray-200 text-gray-700 hover:bg-gray-300 ml-auto"
-                    >
-                      Reset
-                    </button>
+                        <img
+                          src={image}
+                          alt={`Product image ${index + 1}`}
+                          className={`transition-all duration-300 ${imageFit === 'contain' ? 'object-contain' : 'object-cover'} w-full h-full`}
+                          style={{
+                            transform: `scale(${imageSize / 100})`,
+                            transformOrigin: 'center center',
+                            maxWidth: '100%',
+                            maxHeight: '100%'
+                          }}
+                        />
+                      </div>
+                    ))}
                   </div>
                 </div>
-              )}
-              
-              {/* Image container with fixed aspect ratio based on selected layout */}
-              <div 
-                className={`w-full mb-2 border border-gray-200 bg-white overflow-hidden`}
-                style={{
-                  aspectRatio: imageLayout === 'horizontal' ? '16/9' : imageLayout === 'square' ? '1/1' : '9/16',
-                  maxHeight: imageLayout === 'horizontal' ? '300px' : imageLayout === 'square' ? '400px' : '500px',
-                  transition: 'all 0.3s ease'
-                }}
-              >
-                <div className="grid grid-cols-2 gap-2 h-full">
-                  {productImages.slice(0, 2).map((image, index) => (
-                    <div key={index} className="overflow-hidden flex items-center justify-center h-full">
-                      <img 
-                        src={image} 
-                        alt={`Product image ${index + 1}`} 
-                        className={`transition-all duration-300 ${imageFit === 'contain' ? 'object-contain' : 'object-cover'}`}
-                        style={{ 
-                          width: '100%',
-                          height: '100%',
-                          transform: `scale(${imageSize / 100})`,
-                          transformOrigin: 'center center'
-                        }}
-                      />
-                    </div>
-                  ))}
+              </div>
+              {/* Product Details Table on the right */}
+              <div className="md:w-2/3 w-full">
+                <div className="border border-collapse overflow-hidden rounded-md">
+                  {/* Header */}
+                  <div 
+                    className="text-center p-3 font-bold text-lg w-full"
+                    style={{ backgroundColor: colorScheme.headerBg, color: colorScheme.textColor }}
+                  >
+                    Product Details
+                  </div>
+                  
+                  {/* Sortable Content */}
+                  <DndContext
+                    sensors={sensors}
+                    collisionDetection={closestCenter}
+                    onDragEnd={handleDragEnd}
+                  >
+                    <SortableContext
+                      items={orderedKeys}
+                      strategy={verticalListSortingStrategy}
+                    >
+                      <div className="w-full">
+                        {orderedKeys.map((key, index) => (
+                          <SortableRow
+                            key={key}
+                            id={key}
+                            keyName={key}
+                            value={processedDetails[key]}
+                            bgColor={index % 2 === 0 ? colorScheme.rowBg : colorScheme.altRowBg}
+                            onRemove={handleRemoveItem}
+                          />
+                        ))}
+                      </div>
+                    </SortableContext>
+                  </DndContext>
                 </div>
               </div>
             </div>
-          )}
-          
-          <table className="w-full border-collapse">
-            <thead>
-              <tr>
-                <th
-                  colSpan="2"
-                  className="text-center p-3 font-bold text-lg"
+          ) : (
+            <>
+              {showProductImages && productImages.length > 0 && (
+                <div className="mb-2 relative">
+                  {/* Image container with fixed aspect ratio based on selected layout */}
+                  <div
+                    className={`w-full border border-gray-200 bg-white overflow-hidden`}
+                    style={{
+                      aspectRatio: imageLayout === 'horizontal' ? '16/9' : imageLayout === 'square' ? '1/1' : '9/16',
+                      maxHeight: imageLayout === 'horizontal' ? '300px' : imageLayout === 'square' ? '400px' : '500px',
+                      transition: 'all 0.3s ease'
+                    }}
+                  >
+                    <div className="grid grid-cols-2 gap-2 h-full">
+                      {productImages.slice(0, 2).map((image, index) => (
+                        <div key={index} className="overflow-hidden flex items-center justify-center h-full">
+                          <img
+                            src={image}
+                            alt={`Product image ${index + 1}`}
+                            className={`transition-all duration-300 ${imageFit === 'contain' ? 'object-contain' : 'object-cover'}`}
+                            style={{
+                              width: '100%',
+                              height: '100%',
+                              transform: `scale(${imageSize / 100})`,
+                              transformOrigin: 'center center'
+                            }}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+              <div className="border border-collapse overflow-hidden rounded-md">
+                {/* Header */}
+                <div 
+                  className="text-center p-3 font-bold text-lg w-full"
                   style={{ backgroundColor: colorScheme.headerBg, color: colorScheme.textColor }}
                 >
                   Product Details
-                </th>
-              </tr>
-            </thead>
-            <DndContext
-              sensors={sensors}
-              collisionDetection={closestCenter}
-              onDragEnd={handleDragEnd}
-            >
-              <SortableContext
-                items={orderedKeys}
-                strategy={verticalListSortingStrategy}
-              >
-                <tbody>
-                  {orderedKeys.map((key, index) => (
-                    <SortableRow
-                      key={key}
-                      id={key}
-                      keyName={key}
-                      value={processedDetails[key]}
-                      bgColor={index % 2 === 0 ? colorScheme.rowBg : colorScheme.altRowBg}
-                      onRemove={handleRemoveItem}
-                    />
-                  ))}
-                </tbody>
-              </SortableContext>
-            </DndContext>
-          </table>
+                </div>
+                
+                {/* Sortable Content */}
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleDragEnd}
+                >
+                  <SortableContext
+                    items={orderedKeys}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    <div className="w-full">
+                      {orderedKeys.map((key, index) => (
+                        <SortableRow
+                          key={key}
+                          id={key}
+                          keyName={key}
+                          value={processedDetails[key]}
+                          bgColor={index % 2 === 0 ? colorScheme.rowBg : colorScheme.altRowBg}
+                          onRemove={handleRemoveItem}
+                        />
+                      ))}
+                    </div>
+                  </SortableContext>
+                </DndContext>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -595,8 +565,8 @@ const ImagePreview = ({ productDetails, detailsOrder, setDetailsOrder, setSelect
             Download Image
           </span>
         )}
-      </button>
 
+      </button>
       {orderedKeys.length === 0 && (
         <p className="mt-3 text-sm text-center text-red-500">
           No details selected. Please select details from the customize panel.
@@ -604,6 +574,6 @@ const ImagePreview = ({ productDetails, detailsOrder, setDetailsOrder, setSelect
       )}
     </div>
   );
-};
+}
 
 export default ImagePreview;
