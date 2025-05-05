@@ -222,6 +222,13 @@ export default function Home() {
     <main className="min-h-screen bg-gray-50">
       <Header activeTab={activeTab} setActiveTab={setActiveTab} />
 
+      {/* Etsy tab note */}
+      {activeTab === 2 && (
+        <div className="w-full bg-yellow-50 border-l-4 border-yellow-400 text-yellow-800 p-4 mb-4 rounded shadow-sm text-center text-base font-medium animate-pulse">
+          Working on it
+        </div>
+      )}
+
       <div className="container mx-auto px-4 py-8">
         {/* Top ad placement - above the content */}
         <AdSense
