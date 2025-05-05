@@ -72,13 +72,13 @@ export default function Home() {
       // Process product details for eBay and Etsy tabs
       // Post-process data to combine Cut and Grade fields
       const processedData = { ...data };
-      
+
       // Extract product images if available
       if (processedData['productImages'] && Array.isArray(processedData['productImages'])) {
         setProductImages(processedData['productImages']);
         delete processedData['productImages']; // Remove from details to avoid displaying in the table
       }
-      
+
       if (processedData['Cut'] && processedData['Grade']) {
         processedData['Cut Grade'] = processedData['Grade'];
         delete processedData['Cut'];

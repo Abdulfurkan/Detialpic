@@ -40,7 +40,7 @@ const SortableRow = ({ id, keyName, value, bgColor, onRemove }) => {
           <div className="controls-container absolute right-2 top-1/2 transform -translate-y-1/2 flex items-center space-x-2">
             <button
               onClick={() => onRemove(id)}
-              className="remove-button flex items-center justify-center w-6 h-6 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors duration-200"
+              className="remove-button hide-for-download flex items-center justify-center w-6 h-6 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors duration-200"
               title="Remove item"
               aria-label="Remove item"
             >
@@ -51,7 +51,7 @@ const SortableRow = ({ id, keyName, value, bgColor, onRemove }) => {
             <div
               {...attributes}
               {...listeners}
-              className="drag-handle flex items-center justify-center w-6 h-6 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-full cursor-grab active:cursor-grabbing transition-colors duration-200"
+              className="drag-handle hide-for-download flex items-center justify-center w-6 h-6 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-full cursor-grab active:cursor-grabbing transition-colors duration-200"
               title="Drag to reorder"
               aria-label="Drag to reorder"
             >
@@ -255,36 +255,107 @@ const ImagePreview = ({ productDetails, detailsOrder, setDetailsOrder, setSelect
   };
 
   const handleDownload = async () => {
-    if (previewRef.current) {
+  // Hide drag and delete icons before generating image
+  const toHide = document.querySelectorAll('.hide-for-download');
+  toHide.forEach(el => el.style.visibility = 'hidden');
+
+    if (!previewRef.current) {
+      console.error('Preview reference is not available');
+      return;
+    }
+
+    try {
+      setIsGenerating(true);
+      console.log('Starting image generation...');
+
+      // Add a small delay to ensure the DOM is fully rendered
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Log dimensions for debugging
+      const { width, height } = previewRef.current.getBoundingClientRect();
+      console.log(`Preview dimensions: ${width}x${height}`);
+
+      // Check if the preview has content
+      if (width === 0 || height === 0) {
+        throw new Error('Preview container has zero dimensions');
+      }
+
+      // Generate the image with more options
+      const dataUrl = await htmlToImage.toPng(previewRef.current, {
+        quality: 0.95,
+        pixelRatio: 2, // Higher resolution
+        width: Math.max(width, 10), // Ensure minimum width
+        height: Math.max(height, 10), // Ensure minimum height
+        skipAutoScale: true,
+        canvasWidth: width * 2, // Double for better quality
+        canvasHeight: height * 2, // Double for better quality
+        filter: (node) => {
+          // Filter out any resize controls that might be inside the container
+          const result = !node.classList || !node.classList.contains('resize-control');
+          return result;
+        }
+      });
+
+      console.log('Image generated successfully');
+
+      // Validate the dataUrl
+      if (!dataUrl || !dataUrl.startsWith('data:image/png;base64,')) {
+        throw new Error('Generated image data is invalid');
+      }
+
+      // Create a download link
+      const link = document.createElement('a');
+      link.download = 'product-details.png';
+      link.href = dataUrl;
+      link.click();
+
+      // Show success message briefly
+      setDownloadSuccess(true);
+      // Restore drag and delete icons after generating image
+      toHide.forEach(el => el.style.visibility = '');
+      setTimeout(() => {
+        setDownloadSuccess(false);
+      // Restore drag and delete icons after download fails or after timeout
+      toHide.forEach(el => el.style.visibility = '');
+      }, 3000);
+    } catch (error) {
+      console.error('Error generating image:', error);
+
+      // More detailed error logging
+      if (error.message) {
+        console.error('Error message:', error.message);
+      }
+
+      if (error.stack) {
+        console.error('Error stack:', error.stack);
+      }
+
+      // Try fallback method if the first method fails
       try {
-        setIsGenerating(true);
+        console.log('Attempting fallback image generation method...');
+        const dataUrl = await htmlToImage.toCanvas(previewRef.current)
+          .then(canvas => canvas.toDataURL('image/png'));
 
-        // Generate the image
-        const dataUrl = await htmlToImage.toPng(previewRef.current, {
-          quality: 0.95,
-          pixelRatio: 2, // Higher resolution
-          filter: (node) => {
-            // Filter out any resize controls that might be inside the container
-            return !node.classList || !node.classList.contains('resize-control');
-          }
-        });
-
-        // Create a download link
         const link = document.createElement('a');
         link.download = 'product-details.png';
         link.href = dataUrl;
         link.click();
 
-        // Show success message briefly
         setDownloadSuccess(true);
+      // Restore drag and delete icons after generating image
+      toHide.forEach(el => el.style.visibility = '');
         setTimeout(() => {
           setDownloadSuccess(false);
+      // Restore drag and delete icons after download fails or after timeout
+      toHide.forEach(el => el.style.visibility = '');
         }, 3000);
-      } catch (error) {
-        console.error('Error generating image:', error);
-      } finally {
-        setIsGenerating(false);
+
+        console.log('Fallback method succeeded');
+      } catch (fallbackError) {
+        console.error('Fallback method also failed:', fallbackError);
       }
+    } finally {
+      setIsGenerating(false);
     }
   };
 
@@ -399,10 +470,10 @@ const ImagePreview = ({ productDetails, detailsOrder, setDetailsOrder, setSelect
                 >
                   <div className="flex flex-col h-full">
                     {productImages.slice(0, 2).map((image, index) => (
-                      <div 
-                        key={index} 
-                        className="overflow-hidden flex items-center justify-center w-full" 
-                        style={{ 
+                      <div
+                        key={index}
+                        className="overflow-hidden flex items-center justify-center w-full"
+                        style={{
                           height: index === 0 ? '60%' : '40%',
                           flex: index === 0 ? '1 0 60%' : '1 0 40%'
                         }}
@@ -427,13 +498,13 @@ const ImagePreview = ({ productDetails, detailsOrder, setDetailsOrder, setSelect
               <div className="md:w-2/3 w-full">
                 <div className="border border-collapse overflow-hidden rounded-md">
                   {/* Header */}
-                  <div 
+                  <div
                     className="text-center p-3 font-bold text-lg w-full"
                     style={{ backgroundColor: colorScheme.headerBg, color: colorScheme.textColor }}
                   >
                     Product Details
                   </div>
-                  
+
                   {/* Sortable Content */}
                   <DndContext
                     sensors={sensors}
@@ -496,13 +567,13 @@ const ImagePreview = ({ productDetails, detailsOrder, setDetailsOrder, setSelect
               )}
               <div className="border border-collapse overflow-hidden rounded-md">
                 {/* Header */}
-                <div 
+                <div
                   className="text-center p-3 font-bold text-lg w-full"
                   style={{ backgroundColor: colorScheme.headerBg, color: colorScheme.textColor }}
                 >
                   Product Details
                 </div>
-                
+
                 {/* Sortable Content */}
                 <DndContext
                   sensors={sensors}

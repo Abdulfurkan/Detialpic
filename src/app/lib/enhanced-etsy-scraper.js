@@ -4,7 +4,8 @@
 
 import * as cheerio from 'cheerio';
 import { fetchWithCorsProxy } from './cors-proxies';
-import { extractProductInfo } from './etsy-extractor';
+import extractProductInfo from './etsy-extractor';
+import { extractFromMultipleSources } from './etsy-multi-extractor';
 
 /**
  * Scrape product details from an Etsy product page using CORS proxies
@@ -161,9 +162,81 @@ export const scrapeEtsyProductEnhanced = async (url) => {
 
     const $ = cheerio.load(html);
     let productDetails = {};
-
+    let title = '';
+    let description = '';
+    
+    // Extract product images - limit to first two images
+    const productImages = [];
+    
+    // Try multiple selectors for Etsy product images
+    const imageSelectors = [
+      // Main image carousel
+      '.listing-page-image-carousel-component img.wt-max-width-full',
+      // Alternative image selectors
+      '.carousel-image img',
+      '.carousel-pane img',
+      '.listing-page-image-carousel img',
+      '.image-carousel img',
+      // Fallback to any image with high resolution in the product section
+      '.listing-page__content img[src*="il_fullxfull"]',
+      '.listing-page__content img[src*="il_794x"]',
+      '.listing-right-col img'
+    ];
+    
+    // Try each selector until we find images
+    for (const selector of imageSelectors) {
+      if (productImages.length >= 2) break; // Stop once we have two images
+      
+      $(selector).each((i, element) => {
+        if (productImages.length >= 2) return false; // Stop after two images
+        
+        // Try to get the highest resolution version of the image
+        let imgSrc = $(element).attr('src') || $(element).attr('data-src') || $(element).attr('data-fullsize');
+        
+        // Skip placeholder images, svg, or tiny thumbnails
+        if (!imgSrc || imgSrc.includes('svg') || imgSrc.includes('placeholder') || imgSrc.includes('spinner')) {
+          return true; // Continue to next image
+        }
+        
+        // Try to get the highest resolution version by modifying URL patterns
+        // Etsy often has patterns like il_570xN, il_794xN, il_fullxfull
+        if (imgSrc.includes('il_')) {
+          // Replace with highest resolution version
+          imgSrc = imgSrc.replace(/il_\d+x\d+/, 'il_fullxfull');
+        }
+        
+        // Only add unique images
+        if (!productImages.includes(imgSrc)) {
+          productImages.push(imgSrc);
+          console.log(`Found product image: ${imgSrc}`);
+        }
+      });
+    }
+    
+    // If we still don't have images, try a more aggressive approach
+    if (productImages.length < 2) {
+      $('img').each((i, element) => {
+        if (productImages.length >= 2) return false; // Stop after two images
+        
+        const imgSrc = $(element).attr('src');
+        if (!imgSrc) return true;
+        
+        // Look for high-resolution Etsy images
+        if (imgSrc.includes('il_fullxfull') || imgSrc.includes('il_794x') || 
+            (imgSrc.includes('etsy') && imgSrc.includes('.jpg'))) {
+          // Only add unique images that look like product images (not icons or UI elements)
+          if (!productImages.includes(imgSrc) && !imgSrc.includes('icon') && 
+              !imgSrc.includes('avatar') && !imgSrc.includes('logo') && 
+              imgSrc.length > 30) {
+            productImages.push(imgSrc);
+            console.log(`Found product image (aggressive approach): ${imgSrc}`);
+          }
+        }
+      });
+    }
+    
     // Get product title
-    const title = $('h1[data-product-title="true"]').text().trim();
+    title = $('h1[data-product-title="true"]').text().trim();
     if (title) {
       productDetails['Product Name'] = title;
     }
@@ -297,154 +370,35 @@ export const scrapeEtsyProductEnhanced = async (url) => {
       'div.wt-display-block',
       'div.wt-display-inline-block',
       'p',
-      'div'
     ];
     
-    let foundArrowFormat = false;
-    
-    // Try each selector until we find content with arrow format
     for (const selector of descriptionSelectors) {
-      $(selector).each((i, element) => {
-        const text = $(element).text().trim();
-        if (!text || text.length < 10) return; // Skip very short text blocks
-        
-        // Check if this text block contains arrow format patterns
-        if (text.includes('->')) {
-          console.log('Found text with arrow format');
-          const lines = text.split('\n');
-          
-          lines.forEach(line => {
-            line = line.trim();
-            if (!line) return;
-            
-            // Match "Label -> Value" pattern
-            const arrowMatch = line.match(/([^->]+)\s*->\s*(.+)/);
-            if (arrowMatch) {
-              const key = arrowMatch[1].trim();
-              const value = arrowMatch[2].trim();
-              
-              // These are critical gemstone attributes, so add them regardless of filtering
-              productDetails[key] = value;
-              foundArrowFormat = true;
-            }
-          });
+      const elements = $(selector);
+      elements.each((i, el) => {
+        const text = $(el).text().trim();
+        if (text.length > 50) { // Only consider substantial text blocks
+          description = text;
+          return false; // Break the loop once we find a good description
         }
       });
       
-      // If we found arrow format content, no need to continue with other selectors
-      if (foundArrowFormat) break;
+      if (description) break;
     }
     
-    // Directly target specific critical gemstone attributes that might be missed
-    const criticalAttributes = [
-      'Gemstone Type', 'Gemstone Color', 'Size', 'Shape', 'Quantity',
-      'Origin', 'Country/Region of Manufacture', 'Quality'
-    ];
+    console.log('Using new multi-source extraction approach');
     
-    // Ensure we have these critical attributes by searching the entire page content
-    const pageText = $('body').text();
-    criticalAttributes.forEach(attr => {
-      if (!productDetails[attr]) {
-        // Look for the attribute in arrow format
-        const regex = new RegExp(`${attr}\\s*->\\s*(.+?)(?=\\n|\\r|$|\\s{2,}|[A-Z][a-z]+\\s*->)`, 'i');
-        const match = pageText.match(regex);
-        
-        if (match && match[1]) {
-          productDetails[attr] = match[1].trim();
-          console.log(`Found critical attribute: ${attr} = ${match[1].trim()}`);
-        }
-      }
-    });
+    // Use our new comprehensive multi-source extraction
+    productDetails = extractFromMultipleSources($, title, description);
     
-    // If we still don't have gemstone attributes, try a more aggressive approach
-    if (!productDetails['Gemstone Type'] && !productDetails['Gemstone Color']) {
-      console.log('Using aggressive approach to find gemstone attributes');
-      
-      // Look for patterns like "Gemstone Type -> value" anywhere in the page
-      $('*').each((i, element) => {
-        const text = $(element).text().trim();
-        if (!text || text.length < 10 || text.length > 500) return; // Skip very short or very long text
-        
-        criticalAttributes.forEach(attr => {
-          if (!productDetails[attr] && text.includes(attr) && text.includes('->')){  
-            const regex = new RegExp(`${attr}\\s*->\\s*(.+?)(?=\\n|\\r|$|\\s{2,}|[A-Z][a-z]+\\s*->)`, 'i');
-            const match = text.match(regex);
-            
-            if (match && match[1]) {
-              productDetails[attr] = match[1].trim();
-              console.log(`Found critical attribute with aggressive approach: ${attr} = ${match[1].trim()}`);
-            }
-          }
-        });
-      });
+    // Always ensure we have the product name
+    if (title && !productDetails['Product Name']) {
+      productDetails['Product Name'] = title;
     }
     
-    // Get product description for fallback extraction
-    let description = '';
-    
-    // If we still don't have all critical attributes, try to extract them from the description
-    const missingCriticalAttributes = criticalAttributes.filter(attr => !productDetails[attr]);
-    
-    if (missingCriticalAttributes.length > 0) {
-      console.log(`Still missing ${missingCriticalAttributes.length} critical attributes, trying description extraction`);
-      
-      // Try different selectors for description
-      const contentSelectors = [
-        '.wt-mb-xs-2 .wt-content-toggle__body', // Common description container
-        '.wt-text-body-01.wt-break-word', // Alternative description container
-        '[data-id="description-text"]', // Another description container
-        '.wt-display-inline-block.wt-text-body-01', // Yet another description container
-        'p', // Paragraphs
-        'div.wt-mb-xs-2', // Common container
-        'div.wt-content-toggle__body' // Another common container
-      ];
-      
-      for (const selector of contentSelectors) {
-        const elements = $(selector);
-        elements.each((i, el) => {
-          const text = $(el).text().trim();
-          if (text.length > 50) { // Only consider substantial text blocks
-            description = text;
-            
-            // Try to find missing attributes in this text
-            missingCriticalAttributes.forEach(attr => {
-              // Try arrow format
-              const arrowRegex = new RegExp(`${attr}\\s*->\\s*([^\\n\\r]+)`, 'i');
-              const arrowMatch = text.match(arrowRegex);
-              
-              if (arrowMatch && arrowMatch[1]) {
-                productDetails[attr] = arrowMatch[1].trim();
-                console.log(`Found missing attribute in description: ${attr} = ${arrowMatch[1].trim()}`);
-              }
-              
-              // Also try dash format
-              const dashRegex = new RegExp(`${attr}\\s*-\\s*([^\\n\\r]+)`, 'i');
-              const dashMatch = text.match(dashRegex);
-              
-              if (dashMatch && dashMatch[1] && !productDetails[attr]) {
-                productDetails[attr] = dashMatch[1].trim();
-                console.log(`Found missing attribute in description (dash format): ${attr} = ${dashMatch[1].trim()}`);
-              }
-            });
-          }
-        });
-      }
-    }
-
-    // If we have a title and description, use our enhanced extraction
-    if (title && description) {
-      console.log('Using enhanced extraction from title and description');
-      
-      // Extract information from title and description
-      const extractedDetails = extractProductInfo(title, description);
-      
-      // Merge the extracted details with any structured data we found
-      // Prioritize structured data over extracted data for overlapping keys
-      productDetails = {
-        ...extractedDetails,
-        ...productDetails,
-        'Product Name': title // Always use the actual title
-      };
+    // Add product images to the returned data
+    if (productImages.length > 0) {
+      productDetails['productImages'] = productImages;
+      console.log(`Added ${productImages.length} product images to the result`);
     }
 
     return productDetails;

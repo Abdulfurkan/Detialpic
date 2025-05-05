@@ -8,10 +8,10 @@ const getContrastColor = (hexColor) => {
   const r = parseInt(hexColor.slice(1, 3), 16);
   const g = parseInt(hexColor.slice(3, 5), 16);
   const b = parseInt(hexColor.slice(5, 7), 16);
-  
+
   // Calculate luminance
   const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-  
+
   // Return black or white based on luminance
   return luminance > 0.5 ? '#000000' : '#ffffff';
 };
@@ -26,21 +26,21 @@ const ProductDetails = ({ productDetails, setSelectedDetails, selectedDetails, d
   useEffect(() => {
     if (productDetails && Object.keys(productDetails).length > 0) {
       const processed = { ...productDetails };
-      
+
       // Rename Grade to Cut Grade
       if (processed['Grade'] && !processed['Cut Grade']) {
         processed['Cut Grade'] = processed['Grade'];
         delete processed['Grade'];
       }
-      
+
       // Handle Size and Dimensions consistently with ImagePreview component
-      const hasSize = Object.keys(processed).some(key => 
+      const hasSize = Object.keys(processed).some(key =>
         key.toLowerCase() === 'size'
       );
-      
+
       // Combine dimensions if they exist (only if Size doesn't exist)
-      const dimensionKeys = Object.keys(processed).filter(key => 
-        key.includes('Length') || key.includes('Width') || key.includes('Depth') || 
+      const dimensionKeys = Object.keys(processed).filter(key =>
+        key.includes('Length') || key.includes('Width') || key.includes('Depth') ||
         key.includes('length') || key.includes('width') || key.includes('depth')
       );
 
@@ -48,13 +48,13 @@ const ProductDetails = ({ productDetails, setSelectedDetails, selectedDetails, d
         // Always create the Dimensions field for the customization list
         const dimensions = dimensionKeys.map(key => `${key}: ${processed[key]}`).join(', ');
         processed['Dimensions'] = dimensions;
-        
+
         // Remove individual dimension fields
         dimensionKeys.forEach(key => delete processed[key]);
       }
-      
+
       setProcessedDetails(processed);
-      
+
       // Initialize detailsOrder if it's empty
       if (detailsOrder.length === 0) {
         setDetailsOrder(Object.keys(processed));
@@ -68,7 +68,7 @@ const ProductDetails = ({ productDetails, setSelectedDetails, selectedDetails, d
   useEffect(() => {
     if (productDetails && Object.keys(productDetails).length > 0) {
       const gemstoneColorScheme = detectGemstoneColors(productDetails);
-      
+
       // Only update color scheme if a gemstone was detected
       if (gemstoneColorScheme.detectedGemstone || gemstoneColorScheme.detectedMetal) {
         setColorScheme({
@@ -77,12 +77,12 @@ const ProductDetails = ({ productDetails, setSelectedDetails, selectedDetails, d
           altRowBg: gemstoneColorScheme.altRowBg,
           textColor: gemstoneColorScheme.textColor
         });
-        
+
         setDetectedGemstone(
-          gemstoneColorScheme.detectedGemstone ? 
-            gemstoneColorScheme.name : 
-            gemstoneColorScheme.detectedMetal ? 
-              gemstoneColorScheme.name : 
+          gemstoneColorScheme.detectedGemstone ?
+            gemstoneColorScheme.name :
+            gemstoneColorScheme.detectedMetal ?
+              gemstoneColorScheme.name :
               null
         );
       }
@@ -153,7 +153,7 @@ const ProductDetails = ({ productDetails, setSelectedDetails, selectedDetails, d
                 key={setting.name}
                 onClick={() => toggleColorPicker(setting.name)}
                 className="flex items-center px-3 py-1.5 text-sm border rounded-md transition-all duration-200 hover:shadow-md"
-                style={{ 
+                style={{
                   backgroundColor: colorScheme[setting.name],
                   color: setting.name === 'textColor' ? '#fff' : (colorScheme[setting.name] === '#ffffff' ? '#000' : getContrastColor(colorScheme[setting.name])),
                   borderColor: 'rgba(0,0,0,0.1)'
@@ -173,7 +173,7 @@ const ProductDetails = ({ productDetails, setSelectedDetails, selectedDetails, d
                 <span className="text-sm font-medium">
                   {colorSettings.find(s => s.name === activeColorSetting)?.label}
                 </span>
-                <button 
+                <button
                   onClick={() => setShowColorPicker(false)}
                   className="text-gray-500 hover:text-gray-700"
                 >
@@ -200,12 +200,12 @@ const ProductDetails = ({ productDetails, setSelectedDetails, selectedDetails, d
           </svg>
           Select Details to Include:
         </h3>
-        
+
         <div className="max-h-[400px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
           <div className="grid grid-cols-1 gap-2">
             {Object.keys(processedDetails).map(key => (
-              <div 
-                key={key} 
+              <div
+                key={key}
                 className={`flex items-center p-3 border rounded-md transition-all duration-200 
                   ${selectedDetails[key] ? 'border-purple-300 bg-purple-50' : 'border-gray-200 hover:border-gray-300'}`}
               >
@@ -225,7 +225,7 @@ const ProductDetails = ({ productDetails, setSelectedDetails, selectedDetails, d
             ))}
           </div>
         </div>
-        
+
         <div className="mt-4 flex justify-between">
           <button
             onClick={() => setSelectedDetails({})}
@@ -234,14 +234,14 @@ const ProductDetails = ({ productDetails, setSelectedDetails, selectedDetails, d
             Clear All
           </button>
           <button
-            onClick={() => setSelectedDetails({...processedDetails})}
+            onClick={() => setSelectedDetails({ ...processedDetails })}
             className="px-4 py-2 text-sm text-white bg-purple-600 border border-transparent rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-all duration-200"
           >
             Select All
           </button>
         </div>
       </div>
-      
+
       <div className="mt-6 border-t pt-4">
         <p className="text-sm text-gray-600 mb-2 flex items-center">
           <svg className="w-4 h-4 mr-1 text-gray-500" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
@@ -250,7 +250,7 @@ const ProductDetails = ({ productDetails, setSelectedDetails, selectedDetails, d
           Drag the dots in the preview to reorder details
         </p>
       </div>
-      
+
       {productImages && productImages.length > 0 && (
         <div className="mt-6 border-t pt-4">
           <h3 className="text-md font-medium text-gray-700 mb-3 flex items-center">
@@ -271,13 +271,13 @@ const ProductDetails = ({ productDetails, setSelectedDetails, selectedDetails, d
               <span className="ms-3 text-sm font-medium text-gray-700">Show product images</span>
             </label>
           </div>
-          
+
           <div className="grid grid-cols-2 gap-2">
             {productImages.map((image, index) => (
               <div key={index} className="border rounded-md overflow-hidden">
-                <img 
-                  src={image} 
-                  alt={`Product image ${index + 1}`} 
+                <img
+                  src={image}
+                  alt={`Product image ${index + 1}`}
                   className="w-full h-auto object-contain"
                   style={{ maxHeight: '100px' }}
                 />
